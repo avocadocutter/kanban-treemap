@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "strict": false,
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "target": "esnext",
+    "lib": ["ESNext", "DOM"],
+    "moduleResolution": "bundler",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src/**/*.js", "src/css.d.ts"]
+}

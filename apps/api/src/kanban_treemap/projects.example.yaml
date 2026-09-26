@@ -1,0 +1,12 @@
+projects:
+  - id: acme-redesign
+    name: ACME website redesign
+    importance: 5
+    description: Client redesign for ACME. Contact Laura. Figma designs, Next.js build.
+    aliases: [acme, "@acme.com"]
+    deadline: 2026-10-15
+  - id: internal-ops
+    name: Internal ops
+    importance: 2
+    description: Invoices, accounting, hiring, tooling.
+    aliases: [invoice, factura]

@@ -1,0 +1,31 @@
+[project]
+name = "kanban-treemap"
+version = "0.1.0"
+description = "Treemap of what needs your attention across Gmail, Google Chat and ClickUp, triaged by an LLM"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.141.1",
+    "uvicorn>=0.54.0",
+    "groq>=1.7.0",
+    "google-auth>=2.58.1",
+    "google-auth-oauthlib>=1.4.1",
+    "requests>=2.34.2",
+    "pyyaml>=6.0.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.1.1", "ruff", "httpx"]
+
+[project.scripts]
+kanban-treemap = "kanban_treemap.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.32.4"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kanban_treemap"]
+artifacts = ["src/kanban_treemap/static/**"]
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["src/kanban_treemap/static/**"]

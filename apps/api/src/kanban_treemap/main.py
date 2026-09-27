@@ -50,7 +50,10 @@ def sync(days: int = 14):
     with db.conn() as c:
         for name, items in fetched.items():
             db.replace_source(c, name, items)
-        classified = classify.run(c, db.load_projects())
+        try:
+            classified = classify.run(c, db.load_projects())
+        except (RuntimeError, requests.RequestException) as e:
+            raise HTTPException(502, f"AI classification failed: {e}") from e
     sync_state["synced_at"] = datetime.now(UTC).isoformat()
     return {"fetched": {k: len(v) for k, v in fetched.items()}, "classified": classified, "warnings": warnings}
 

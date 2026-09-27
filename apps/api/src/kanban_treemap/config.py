@@ -8,11 +8,13 @@ import yaml
 HOME = Path(os.environ.get("KANBAN_TREEMAP_HOME") or Path.home() / ".kanban-treemap")
 CONFIG_FILE = HOME / "config.yaml"
 PROJECTS_FILE = HOME / "projects.yaml"
-KEYS = ["GROQ_API_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "CLICKUP_API_TOKEN", "PORT"]
+KEYS = ["LLM_PROVIDER", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "CLICKUP_API_TOKEN", "PORT"]
+API_KEYS = ["LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY"]
+PROVIDERS = ["codex", "api"]
 
 CONFIG_TEMPLATE = """\
 port: 8765
-groq_api_key: ""
+llm_provider: codex
 google_client_id: ""
 google_client_secret: ""
 clickup_api_token: ""
@@ -35,10 +37,15 @@ def init_home():
 @cache
 def settings():
     file_cfg = (yaml.safe_load(CONFIG_FILE.read_text()) or {}) if CONFIG_FILE.exists() else {}
-    values = {k: os.environ.get(k) or file_cfg.get(k.lower()) for k in KEYS}
-    missing = [k.lower() for k, v in values.items() if not v]
+    values = {k: os.environ.get(k) or file_cfg.get(k.lower()) for k in KEYS + API_KEYS}
+    required = KEYS + (API_KEYS if values["LLM_PROVIDER"] == "api" else [])
+    missing = [k.lower() for k in required if not values[k]]
     if missing:
         raise RuntimeError(f"Missing config: {', '.join(missing)}. Set them in {CONFIG_FILE} (or as upper-case env vars).")
+    if values["LLM_PROVIDER"] not in PROVIDERS:
+        raise RuntimeError(f"llm_provider must be one of: {', '.join(PROVIDERS)}")
+    if values["LLM_PROVIDER"] == "codex" and not shutil.which("codex"):
+        raise RuntimeError("llm_provider is codex but the codex CLI is not installed. Install it or switch llm_provider to api.")
     values["PORT"] = int(values["PORT"])
     values["WEB_URL"] = os.environ.get("WEB_URL") or f"http://localhost:{values['PORT']}"
     return values

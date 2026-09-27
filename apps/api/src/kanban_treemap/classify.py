@@ -1,12 +1,14 @@
 import hashlib
 import json
+import subprocess
+import tempfile
+from pathlib import Path
 
-from groq import Groq
+import requests
 
 from .config import settings
 from .treemap import alias_match
 
-MODEL = "openai/gpt-oss-120b"
 BATCH = 15
 
 PROMPT = """You triage my work messages and tasks into projects.
@@ -22,6 +24,44 @@ For each item return:
 Respond with JSON only: {{"items": [{{"id": "...", "project": "...", "needs_reply": false, "summary": "..."}}]}}"""
 
 
+def ask_llm(s, system, user):
+    if s["LLM_PROVIDER"] == "codex":
+        return ask_codex(system, user)
+    r = requests.post(
+        f"{s['LLM_BASE_URL'].rstrip('/')}/chat/completions",
+        headers={"Authorization": f"Bearer {s['LLM_API_KEY']}"},
+        json={
+            "model": s["LLM_MODEL"],
+            "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        },
+        timeout=180,
+    )
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"]
+
+
+def ask_codex(system, user):
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "answer.txt"
+        p = subprocess.run(
+            ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only", "-o", str(out), "-"],
+            input=f"{system}\n\nItems:\n{user}",
+            capture_output=True,
+            text=True,
+            cwd=tmp,
+            timeout=600,
+            check=False,
+        )
+        if p.returncode != 0:
+            raise RuntimeError(f"codex failed (try `codex login`): {p.stderr.strip()[-400:]}")
+        return out.read_text()
+
+
+def parse_json(text):
+    return json.loads(text[text.find("{") : text.rfind("}") + 1])
+
+
 def run(c, projects):
     phash = hashlib.sha1(json.dumps(projects, default=str, sort_keys=True).encode()).hexdigest()[:8]
     todo = [
@@ -31,7 +71,7 @@ def run(c, projects):
     ]
     if not todo:
         return 0
-    client = Groq(api_key=settings()["GROQ_API_KEY"])
+    s = settings()
     ids = {p["id"] for p in projects}
     listing = "\n".join(f"- {p['id']}: {p['name']} — {p.get('description', '')}" for p in projects)
     done = 0
@@ -41,15 +81,8 @@ def run(c, projects):
             {k: it[k] for k in ("id", "source", "title", "people", "last_from_me")} | {"text": (it["body"] or "")[:800]}
             for it in batch.values()
         ]
-        resp = client.chat.completions.create(
-            model=MODEL,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": PROMPT.format(projects=listing)},
-                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-            ],
-        )
-        for out in json.loads(resp.choices[0].message.content).get("items", []):
+        answer = ask_llm(s, PROMPT.format(projects=listing), json.dumps(payload, ensure_ascii=False))
+        for out in parse_json(answer).get("items", []):
             it = batch.get(out.get("id"))
             if not it:
                 continue

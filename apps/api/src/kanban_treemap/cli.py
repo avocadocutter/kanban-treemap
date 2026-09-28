@@ -54,6 +54,8 @@ STEP 1 - Open {config} and fill in:
         llm_model: <model from `ollama list`>
         llm_api_key: "ollama"
 
+  Sources: fill in the ones you use (at least one), leave the rest empty.
+
   clickup_api_token  (1 min)
     In ClickUp: your avatar > Settings > Apps > API Token > Generate > paste it.
 

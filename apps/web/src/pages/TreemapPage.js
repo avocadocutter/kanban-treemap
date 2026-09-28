@@ -7,7 +7,7 @@ import { api, STATUS_STYLE } from '../api.js'
 /** @typedef {import('../types.js').ProjectNode} ProjectNode */
 
 export default function TreemapPage() {
-  const [data, setData] = useState(/** @type {{ projects: ProjectNode[], google_connected: boolean, synced_at: string | null } | null} */ (null))
+  const [data, setData] = useState(/** @type {{ projects: ProjectNode[], google_enabled: boolean, google_connected: boolean, synced_at: string | null } | null} */ (null))
   const [syncing, setSyncing] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -36,12 +36,12 @@ export default function TreemapPage() {
         <Legend />
         <div className="ml-auto flex items-center gap-3 text-sm">
           {data?.synced_at && <span className="text-zinc-400">Synced {new Date(data.synced_at).toLocaleTimeString()}</span>}
-          {data && !data.google_connected && (
+          {data?.google_enabled && !data.google_connected && (
             <a href="/api/auth/google" className="rounded bg-zinc-100 px-3 py-1.5 font-medium text-zinc-900">Connect Google</a>
           )}
           <button
             onClick={sync}
-            disabled={syncing || !data?.google_connected}
+            disabled={syncing}
             className="rounded bg-sky-600 px-3 py-1.5 font-medium disabled:opacity-40"
           >
             {syncing ? 'Syncing…' : 'Sync'}

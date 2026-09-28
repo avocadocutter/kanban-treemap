@@ -32,16 +32,18 @@ def google_callback(state: str, code: str):
 
 @app.post("/api/sync")
 def sync(days: int = 14):
-    s = gsuite.session()
-    if not s:
-        raise HTTPException(400, "Connect your Google account first")
-    me = gsuite.me(s)
-    fetched, warnings = {}, []
-    sources = {
-        "gmail": lambda: gsuite.gmail(s, me["email"], days),
-        "chat": lambda: gsuite.chat(s, me["sub"], days),
-        "clickup": clickup.tasks,
-    }
+    cfg = settings()
+    fetched, warnings, sources = {}, [], {}
+    if cfg["CLICKUP_API_TOKEN"]:
+        sources["clickup"] = clickup.tasks
+    if cfg["GOOGLE_CLIENT_ID"]:
+        s = gsuite.session()
+        if s:
+            me = gsuite.me(s)
+            sources["gmail"] = lambda: gsuite.gmail(s, me["email"], days)
+            sources["chat"] = lambda: gsuite.chat(s, me["sub"], days)
+        else:
+            warnings.append("google: not connected yet, click Connect Google")
     for name, fetch in sources.items():
         try:
             fetched[name] = list(fetch())
@@ -64,6 +66,7 @@ def get_treemap():
         items = db.all_items(c)
     return {
         "projects": treemap.project_nodes(db.load_projects(), items, _today()),
+        "google_enabled": bool(settings()["GOOGLE_CLIENT_ID"]),
         "google_connected": gsuite.TOKEN.exists(),
         "synced_at": sync_state["synced_at"],
     }

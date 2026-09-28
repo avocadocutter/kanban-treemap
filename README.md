@@ -18,7 +18,13 @@ Click a box to see its messages and tasks, urgent first, each with a one-line AI
 Requires [uv](https://docs.astral.sh/uv/).
 
 ```sh
-uvx --from "git+https://github.com/avocadocutter/kanban-treemap#subdirectory=apps/api" kanban-treemap
+uvx --from git+https://github.com/avocadocutter/kanban-treemap kanban-treemap
+```
+
+Or install it once to get a short `kanban-treemap` command:
+
+```sh
+uv tool install git+https://github.com/avocadocutter/kanban-treemap
 ```
 
 The first run creates `~/.kanban-treemap/` and prints step-by-step setup. You'll need:

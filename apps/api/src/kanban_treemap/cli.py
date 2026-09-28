@@ -83,8 +83,11 @@ STEP 2 - Open {projects} and list your projects.
       deadline: YYYY-MM-DD (omit if none)
   ----------------------------------------------------------------
 
-STEP 3 - Run kanban-treemap again. Your browser opens:
+STEP 3 - Run the same command again. Your browser opens:
   click "Connect Google", then "Sync".
+
+  Tip: install it once to get a short `kanban-treemap` command:
+    uv tool install git+https://github.com/avocadocutter/kanban-treemap
 """
 
 

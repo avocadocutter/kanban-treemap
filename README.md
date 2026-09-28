@@ -2,16 +2,16 @@
 
 **See which project needs you now, not which email is next.**
 
-It reads Gmail, Google Chat and ClickUp, uses AI to sort every message and task into *your* projects, and draws them as a treemap.
+It reads Gmail, Google Chat and ClickUp Chat, uses AI to sort every message into *your* projects, and draws them as a treemap.
 
 ![kanban-treemap screenshot](docs/screenshot.jpg)
 
 - **Bigger box**: the project matters more and has more waiting on you.
-- 🔴 **Red**: overdue tasks, or the deadline is close.
+- 🔴 **Red**: the project deadline is close.
 - 🟠 **Orange**: someone is waiting for your reply.
 - 🟢 **Green**: on track.
 
-Click a box to see its messages and tasks, urgent first, each with a one-line AI summary.
+Click a box to see its messages, urgent first, each with a one-line AI summary.
 
 ## Run it
 

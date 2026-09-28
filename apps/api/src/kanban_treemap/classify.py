@@ -11,14 +11,14 @@ from .treemap import alias_match
 
 BATCH = 15
 
-PROMPT = """You triage my work messages and tasks into projects.
+PROMPT = """You triage my work messages into projects.
 
 Projects:
 {projects}
 
 For each item return:
 - project: one of the project ids above, or "other" if none fits
-- needs_reply: true only if a real person is waiting for an answer or action from me. False for newsletters, notifications, automated mail, FYIs, or when last_from_me is true. Always false for clickup items.
+- needs_reply: true only if a real person is waiting for an answer or action from me. False for newsletters, notifications, automated mail, FYIs, or when last_from_me is true.
 - summary: at most 15 words, what this is about and what (if anything) I must do
 
 Respond with JSON only: {{"items": [{{"id": "...", "project": "...", "needs_reply": false, "summary": "..."}}]}}"""
@@ -87,7 +87,7 @@ def run(c, projects):
             if not it:
                 continue
             project = alias_match(it, projects) or (out.get("project") if out.get("project") in ids else "other")
-            needs_reply = bool(out.get("needs_reply")) and it["source"] != "clickup" and not it["last_from_me"]
+            needs_reply = bool(out.get("needs_reply")) and not it["last_from_me"]
             c.execute(
                 "update items set project=?, needs_reply=?, summary=?, classified_for=? where id=?",
                 [project, needs_reply, out.get("summary", ""), f"{it['updated_at']}|{phash}", it["id"]],

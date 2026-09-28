@@ -35,7 +35,7 @@ def sync(days: int = 14):
     cfg = settings()
     fetched, warnings, sources = {}, [], {}
     if cfg["CLICKUP_API_TOKEN"]:
-        sources["clickup"] = clickup.tasks
+        sources["clickup"] = lambda: clickup.chats(days)
     if cfg["GOOGLE_CLIENT_ID"]:
         s = gsuite.session()
         if s:

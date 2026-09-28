@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api, STATUS_STYLE } from '../api.js'
 
-const SOURCE_LABEL = { gmail: 'Gmail', chat: 'Chat', clickup: 'ClickUp' }
+const SOURCE_LABEL = { gmail: 'Gmail', chat: 'Google Chat', clickup: 'ClickUp Chat' }
 
 export default function ProjectPage() {
   const { id } = useParams()

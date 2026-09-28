@@ -1,10 +1,10 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import requests
 
 from .config import settings
 
-API = "https://api.clickup.com/api/v2"
+API = "https://api.clickup.com/api"
 
 
 def _get(path, **params):
@@ -14,31 +14,42 @@ def _get(path, **params):
 
 
 def _iso_ms(ms):
-    return datetime.fromtimestamp(int(ms) / 1000, UTC).isoformat() if ms else None
+    return datetime.fromtimestamp(int(ms) / 1000, UTC).isoformat()
 
 
-def tasks():
-    user_id = _get("/user")["user"]["id"]
-    for team in _get("/team")["teams"]:
-        page = 0
+def chats(days):
+    my_id = str(_get("/v2/user")["user"]["id"])
+    since_ms = int((datetime.now(UTC) - timedelta(days=days)).timestamp() * 1000)
+    for team in _get("/v2/team")["teams"]:
+        ws = team["id"]
+        cursor = None
         while True:
-            r = _get(
-                f"/team/{team['id']}/task",
-                **{"assignees[]": user_id, "subtasks": "true", "include_closed": "false", "page": page},
+            page = _get(
+                f"/v3/workspaces/{ws}/chat/channels",
+                with_message_since=since_ms,
+                limit=100,
+                **({"cursor": cursor} if cursor else {}),
             )
-            for t in r["tasks"]:
-                where = " / ".join(x.get("name", "") for x in (t.get("space") or {}, t.get("folder") or {}, t.get("list") or {}))
+            for ch in page.get("data", []):
+                msgs = _get(
+                    f"/v3/workspaces/{ws}/chat/channels/{ch['id']}/messages", limit=15, content_format="text/plain"
+                ).get("data", [])
+                msgs = [m for m in msgs if m["date"] >= since_ms]
+                if not msgs:
+                    continue
                 yield {
-                    "id": f"clickup:{t['id']}",
+                    "id": f"clickup:{ch['id']}",
                     "source": "clickup",
-                    "title": t["name"],
-                    "body": f"[{t['status']['status']}] {(t.get('text_content') or '')[:600]}",
-                    "url": t["url"],
-                    "people": where,
-                    "updated_at": _iso_ms(t["date_updated"]),
-                    "due_at": _iso_ms(t.get("due_date")),
-                    "last_from_me": False,
+                    "title": ch.get("name") or "Direct message",
+                    "body": "\n".join(
+                        f"{'me' if str(m['user_id']) == my_id else 'them'}: {m['content'][:300]}" for m in reversed(msgs)
+                    ),
+                    "url": f"https://app.clickup.com/{ws}/chat/r/{ch['id']}",
+                    "people": ch.get("name") or "",
+                    "updated_at": _iso_ms(msgs[0]["date"]),
+                    "due_at": None,
+                    "last_from_me": str(msgs[0]["user_id"]) == my_id,
                 }
-            if r.get("last_page", True) or not r["tasks"]:
+            cursor = page.get("next_cursor")
+            if not cursor:
                 break
-            page += 1

@@ -29,8 +29,7 @@ def project_nodes(projects, items, today: date):
         overdue = sum(is_overdue(i, today) for i in its)
         replies = sum(bool(i.get("needs_reply")) for i in its)
         deadline = p.get("deadline")
-        open_tasks = any(i["source"] == "clickup" for i in its)
-        deadline_close = bool(deadline) and open_tasks and (date.fromisoformat(str(deadline)) - today).days <= DEADLINE_WARNING_DAYS
+        deadline_close = bool(deadline) and bool(its) and (date.fromisoformat(str(deadline)) - today).days <= DEADLINE_WARNING_DAYS
         nodes.append(
             {
                 "id": p["id"],

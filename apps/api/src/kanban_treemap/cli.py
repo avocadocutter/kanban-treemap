@@ -16,7 +16,7 @@ STEP 1 - Open {config} and fill in:
     Uses your Codex subscription. Not logged in? Run: codex login
 
     ! PRIVACY: except Ollama, every option sends message excerpts (subjects,
-      senders, snippets, task text) to that AI company. Using work accounts?
+      senders, message snippets) to that AI company. Using work accounts?
       Check your company's AI policy first. Your company's own AI plan
       (e.g. ChatGPT Business/Enterprise) is usually the approved option.
       Personal AI plans may use your data for training unless you opt out.

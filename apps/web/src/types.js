@@ -5,7 +5,7 @@
  *   count: number, overdue: number, replies: number, status: Status, value: number }} ProjectNode
  */
 /**
- * @typedef {{ id: string, source: 'gmail' | 'chat' | 'clickup', title: string, summary: string | null, url: string,
+ * @typedef {{ id: string, source: 'gmail' | 'chat' | 'clickup', title: string, body: string | null, summary: string | null, url: string,
  *   people: string, updated_at: string, due_at: string | null, needs_reply: number, overdue: boolean }} Item
  */
 export {}

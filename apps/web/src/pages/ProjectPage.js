@@ -3,52 +3,112 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { api, STATUS_STYLE } from '../api.js'
 
+/** @typedef {import('../types.js').Item} Item */
+
 const SOURCE_LABEL = { gmail: 'Gmail', chat: 'Google Chat', clickup: 'ClickUp Chat' }
+
+/** @param {string | null} body @returns {{ who: string, text: string }[]} */
+export function parseMessages(body) {
+  return (body ?? '')
+    .split(/\n---\n|\n(?=(?:me|them): )/)
+    .filter((block) => block.trim())
+    .map((block) => {
+      const i = block.indexOf(': ')
+      return i === -1 ? { who: '', text: block } : { who: block.slice(0, i), text: block.slice(i + 2) }
+    })
+}
 
 export default function ProjectPage() {
   const { id } = useParams()
   const [data, setData] = useState(
-    /** @type {{ project: import('../types.js').ProjectNode, items: import('../types.js').Item[] } | null} */ (null),
+    /** @type {{ project: import('../types.js').ProjectNode, items: Item[] } | null} */ (null),
   )
+  const [selectedId, setSelectedId] = useState(/** @type {string | null} */ (null))
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api(`/projects/${id}`).then(setData).catch((e) => setError(e.message))
+    api(`/projects/${id}`)
+      .then((d) => {
+        setData(d)
+        setSelectedId(d.items[0]?.id ?? null)
+      })
+      .catch((e) => setError(e.message))
   }, [id])
 
   if (error) return <p className="p-4 text-red-400">{error}</p>
   if (!data) return <p className="p-4 text-zinc-400">Loading…</p>
   const { project, items } = data
+  const selected = items.find((it) => it.id === selectedId)
 
   return (
-    <div className="mx-auto max-w-4xl p-4">
-      <Link to="/" className="text-sm text-sky-400">← Treemap</Link>
-      <div className={`mt-3 rounded-md p-4 ${STATUS_STYLE[project.status]}`}>
-        <h1 className="text-xl font-semibold">{project.name}</h1>
-        <p className="text-sm opacity-90">{project.description}</p>
-        <p className="mt-1 text-xs opacity-90">
-          {'★'.repeat(project.importance)} · {project.overdue} overdue · {project.replies} to reply
-          {project.deadline && ` · due ${project.deadline}`}
-        </p>
+    <div className="flex h-screen flex-col gap-3 p-4">
+      <div>
+        <Link to="/" className="text-sm text-sky-400">← Treemap</Link>
+        <div className={`mt-2 rounded-md px-4 py-3 ${STATUS_STYLE[project.status]}`}>
+          <h1 className="text-xl font-semibold">{project.name}</h1>
+          <p className="text-xs opacity-90">
+            {'★'.repeat(project.importance)} · {project.replies} to reply · {project.count} threads
+            {project.deadline && ` · due ${project.deadline}`}
+          </p>
+        </div>
       </div>
-      <ul className="mt-4 divide-y divide-zinc-800">
-        {items.length === 0 && <li className="py-3 text-zinc-400">Nothing here.</li>}
-        {items.map((it) => (
-          <li key={it.id} className="flex gap-3 py-3">
-            <span className="w-16 shrink-0 text-xs text-zinc-500">{SOURCE_LABEL[it.source]}</span>
-            <div className="min-w-0 flex-1">
-              <a href={it.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">{it.title}</a>
-              {it.summary && <p className="text-sm text-zinc-400">{it.summary}</p>}
-              <p className="text-xs text-zinc-600">{it.people}</p>
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
-              {it.overdue && <span className="rounded bg-red-600 px-1.5">overdue {it.due_at?.slice(0, 10)}</span>}
-              {!!it.needs_reply && <span className="rounded bg-amber-500 px-1.5 text-zinc-950">reply</span>}
-              <span className="text-zinc-500">{new Date(it.updated_at).toLocaleDateString()}</span>
-            </div>
+
+      {items.length === 0 ? (
+        <p className="text-zinc-400">Nothing here.</p>
+      ) : (
+        <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(240px,1fr)_2fr]">
+          <ul className="min-h-0 overflow-y-auto rounded-md border border-zinc-800">
+            {items.map((it) => (
+              <li key={it.id}>
+                <button
+                  onClick={() => setSelectedId(it.id)}
+                  className={`w-full border-b border-zinc-800 px-3 py-2 text-left hover:bg-zinc-900 ${it.id === selectedId ? 'bg-zinc-800' : ''}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate font-medium">{it.title}</span>
+                    {!!it.needs_reply && <span className="size-2 shrink-0 rounded-full bg-amber-500" title="needs reply" />}
+                  </div>
+                  <div className="flex justify-between text-xs text-zinc-500">
+                    <span>{SOURCE_LABEL[it.source]}</span>
+                    <span>{new Date(it.updated_at).toLocaleDateString()}</span>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {selected && <Conversation item={selected} />}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** @param {{ item: Item }} props */
+function Conversation({ item }) {
+  return (
+    <section className="flex min-h-0 flex-col rounded-md border border-zinc-800">
+      <header className="border-b border-zinc-800 px-4 py-3">
+        <div className="flex items-start gap-2">
+          <h2 className="min-w-0 flex-1 font-semibold">{item.title}</h2>
+          {!!item.needs_reply && <span className="rounded bg-amber-500 px-1.5 text-xs text-zinc-950">reply</span>}
+        </div>
+        <p className="text-xs text-zinc-500">{SOURCE_LABEL[item.source]} · {item.people}</p>
+        {item.summary && <p className="mt-1 text-sm text-zinc-300">AI: {item.summary}</p>}
+      </header>
+      <ul className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+        {parseMessages(item.body).map((m, i) => (
+          <li key={i} className={m.who === 'me' ? 'ml-8 rounded-md bg-sky-950 p-2' : 'mr-8 rounded-md bg-zinc-900 p-2'}>
+            {m.who && <div className="text-xs font-medium text-zinc-400">{m.who}</div>}
+            <div className="whitespace-pre-wrap text-sm">{m.text}</div>
           </li>
         ))}
       </ul>
-    </div>
+      <footer className="border-t border-zinc-800 px-4 py-2">
+        <a href={item.url} target="_blank" rel="noreferrer" className="text-sm text-sky-400 hover:underline">
+          Open in {SOURCE_LABEL[item.source]} ↗
+        </a>
+      </footer>
+    </section>
   )
 }

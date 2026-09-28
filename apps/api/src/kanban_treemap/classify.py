@@ -30,6 +30,8 @@ Respond with JSON only: {{"items": [{{"id": "...", "project": "...", "needs_repl
 
 
 def ask_llm(s, system, user):
+    if s["LLM_PROVIDER"] == "claude":
+        return ask_claude(system, user, s["LLM_MODEL"] or "haiku")
     if s["LLM_PROVIDER"] == "codex":
         return ask_codex(system, user)
     for wait in [*RETRY_WAITS, None]:
@@ -50,6 +52,30 @@ def ask_llm(s, system, user):
     if not r.ok:
         raise RuntimeError(f"{r.status_code} from {r.url}: {r.text[:300]}")
     return r.json()["choices"][0]["message"]["content"]
+
+
+def ask_claude(system, user, model):
+    with tempfile.TemporaryDirectory() as tmp:
+        p = subprocess.run(
+            [
+                "claude", "-p", "--output-format", "json", "--model", model, "--tools", "",
+                "--system-prompt", system, "--setting-sources", "", "--strict-mcp-config",
+                "--mcp-config", '{"mcpServers":{}}', "--disable-slash-commands", "--no-session-persistence",
+            ],
+            input=user,
+            capture_output=True,
+            text=True,
+            cwd=tmp,
+            timeout=600,
+            check=False,
+        )
+    try:
+        out = json.loads(p.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(f"claude failed (try running `claude` and /login): {(p.stderr or p.stdout).strip()[-400:]}") from None
+    if p.returncode != 0 or out.get("is_error"):
+        raise RuntimeError(f"claude failed (try running `claude` and /login): {out.get('result', '')[:400]}")
+    return out["result"]
 
 
 def ask_codex(system, user):

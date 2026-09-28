@@ -29,7 +29,7 @@ uv tool install git+https://github.com/avocadocutter/kanban-treemap
 
 The first run creates `~/.kanban-treemap/` and prints step-by-step setup. You'll need:
 
-- **AI**: a Codex (ChatGPT) login, or any OpenAI-compatible provider (Groq, OpenAI, Gemini, OpenRouter, or local Ollama)
+- **AI**: your Claude Code or Codex (ChatGPT) login, or any OpenAI-compatible provider (Groq, OpenAI, Gemini, OpenRouter, or local Ollama)
 - **Google**: an OAuth client from Google Cloud Console (about 10 minutes, once)
 - **ClickUp**: a personal API token
 - **Your projects**: a short `projects.yaml`, which the setup gives you a prompt to generate

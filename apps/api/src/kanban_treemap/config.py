@@ -11,11 +11,11 @@ PROJECTS_FILE = HOME / "projects.yaml"
 KEYS = ["LLM_PROVIDER", "PORT"]
 SOURCE_KEYS = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "CLICKUP_API_TOKEN"]
 API_KEYS = ["LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY"]
-PROVIDERS = ["codex", "api"]
+PROVIDERS = ["claude", "codex", "api"]
 
 CONFIG_TEMPLATE = """\
 port: 8765
-llm_provider: codex
+llm_provider: claude
 google_client_id: ""
 google_client_secret: ""
 clickup_api_token: ""
@@ -49,8 +49,11 @@ def settings():
         raise RuntimeError(f"Connect at least one source: set clickup_api_token and/or the google_client_* keys in {CONFIG_FILE}.")
     if values["LLM_PROVIDER"] not in PROVIDERS:
         raise RuntimeError(f"llm_provider must be one of: {', '.join(PROVIDERS)}")
-    if values["LLM_PROVIDER"] == "codex" and not shutil.which("codex"):
-        raise RuntimeError("llm_provider is codex but the codex CLI is not installed. Install it or switch llm_provider to api.")
+    if values["LLM_PROVIDER"] in ("claude", "codex") and not shutil.which(values["LLM_PROVIDER"]):
+        raise RuntimeError(
+            f"llm_provider is {values['LLM_PROVIDER']} but the {values['LLM_PROVIDER']} command is not installed. "
+            "Install it or change llm_provider."
+        )
     values["PORT"] = int(values["PORT"])
     values["WEB_URL"] = os.environ.get("WEB_URL") or f"http://localhost:{values['PORT']}"
     return values

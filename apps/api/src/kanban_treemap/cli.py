@@ -12,8 +12,11 @@ I created two files for you in {home}
 
 STEP 1 - Open {config} and fill in:
 
-  llm_provider  (nothing to do if you have ChatGPT / Codex)
-    Uses your Codex subscription. Not logged in? Run: codex login
+  llm_provider  (nothing to do if you have Claude Code)
+    Uses your Claude subscription through your own `claude` command.
+    Not logged in? Run `claude` and type /login.
+
+    Have ChatGPT / Codex instead? Set: llm_provider: codex  (login: codex login)
 
     ! PRIVACY: except Ollama, every option sends message excerpts (subjects,
       senders, message snippets) to that AI company. Using work accounts?
@@ -22,7 +25,7 @@ STEP 1 - Open {config} and fill in:
       Personal AI plans may use your data for training unless you opt out.
       Ollama keeps everything local.
 
-    No Codex? Replace `llm_provider: codex` with one of these:
+    Neither? Replace `llm_provider: claude` with one of these:
 
       Groq - free key at console.groq.com/keys
         llm_provider: api

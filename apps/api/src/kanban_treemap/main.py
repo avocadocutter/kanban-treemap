@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -61,8 +61,13 @@ def sync(days: int = 14):
     cfg = settings()
     log.info("sync: started (last %s days)", days)
     fetched, warnings, sources = {}, [], {}
+    started = datetime.now(UTC)
+    window_start = started - timedelta(days=days)
+    window_ms = int(window_start.timestamp() * 1000)
     if cfg["CLICKUP_API_TOKEN"]:
-        sources["clickup"] = lambda: clickup.chats(days)
+        with db.conn() as c:
+            since_ms = max(window_ms, int(db.get_state(c, "clickup_synced_ms") or 0))
+        sources["clickup"] = lambda: clickup.chats(window_ms, since_ms)
     if cfg["GOOGLE_CLIENT_ID"]:
         s = gsuite.session()
         if s:
@@ -83,7 +88,12 @@ def sync(days: int = 14):
         log.warning("sync: %s", w)
     with db.conn() as c:
         for name, items in fetched.items():
-            db.replace_source(c, name, items)
+            if name == "clickup":
+                db.upsert(c, items)
+                db.delete_older(c, "clickup", window_start.isoformat())
+                db.set_state(c, "clickup_synced_ms", str(int(started.timestamp() * 1000)))
+            else:
+                db.replace_source(c, name, items)
         try:
             classified = classify.run(c, db.load_projects())
         except (RuntimeError, requests.RequestException) as e:

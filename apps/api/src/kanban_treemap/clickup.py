@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import requests
 
@@ -19,9 +19,9 @@ def _iso_ms(ms):
     return datetime.fromtimestamp(int(ms) / 1000, UTC).isoformat()
 
 
-def chats(days):
+def chats(window_ms, since_ms):
     my_id = str(_get("/v2/user")["user"]["id"])
-    since_ms = int((datetime.now(UTC) - timedelta(days=days)).timestamp() * 1000)
+    log.info("clickup: channels with messages since %s", _iso_ms(since_ms))
     for team in _get("/v2/team")["teams"]:
         ws = team["id"]
         cursor = None
@@ -35,11 +35,11 @@ def chats(days):
             channels = page.get("data", [])
             log.info("clickup: workspace %s, %d active channels", ws, len(channels))
             for n, ch in enumerate(channels, 1):
-                log.info("clickup: reading channel %d/%d", n, len(channels))
+                log.info("clickup: reading channel %d/%d %s", n, len(channels), ch.get("name") or "(direct message)")
                 msgs = _get(
                     f"/v3/workspaces/{ws}/chat/channels/{ch['id']}/messages", limit=15, content_format="text/plain"
                 ).get("data", [])
-                msgs = [m for m in msgs if m["date"] >= since_ms]
+                msgs = [m for m in msgs if m["date"] >= window_ms]
                 if not msgs:
                     continue
                 yield {

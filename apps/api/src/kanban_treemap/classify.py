@@ -13,6 +13,8 @@ from .treemap import alias_match
 
 BATCH = 15
 log = logging.getLogger("kanban_treemap")
+RETRY_STATUSES = {429, 500, 502, 503, 504}
+RETRY_WAITS = [5, 15, 45]
 
 PROMPT = """You triage my work messages into projects.
 
@@ -30,16 +32,21 @@ Respond with JSON only: {{"items": [{{"id": "...", "project": "...", "needs_repl
 def ask_llm(s, system, user):
     if s["LLM_PROVIDER"] == "codex":
         return ask_codex(system, user)
-    r = requests.post(
-        f"{s['LLM_BASE_URL'].rstrip('/')}/chat/completions",
-        headers={"Authorization": f"Bearer {s['LLM_API_KEY']}"},
-        json={
-            "model": s["LLM_MODEL"],
-            "response_format": {"type": "json_object"},
-            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        },
-        timeout=180,
-    )
+    for wait in [*RETRY_WAITS, None]:
+        r = requests.post(
+            f"{s['LLM_BASE_URL'].rstrip('/')}/chat/completions",
+            headers={"Authorization": f"Bearer {s['LLM_API_KEY']}"},
+            json={
+                "model": s["LLM_MODEL"],
+                "response_format": {"type": "json_object"},
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            },
+            timeout=180,
+        )
+        if r.status_code not in RETRY_STATUSES or wait is None:
+            break
+        log.warning("ai: provider busy (%s), retrying in %ss", r.status_code, wait)
+        time.sleep(wait)
     if not r.ok:
         raise RuntimeError(f"{r.status_code} from {r.url}: {r.text[:300]}")
     return r.json()["choices"][0]["message"]["content"]

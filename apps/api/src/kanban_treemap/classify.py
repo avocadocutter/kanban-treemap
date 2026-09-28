@@ -1,7 +1,9 @@
 import hashlib
 import json
+import logging
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 import requests
@@ -10,6 +12,7 @@ from .config import settings
 from .treemap import alias_match
 
 BATCH = 15
+log = logging.getLogger("kanban_treemap")
 
 PROMPT = """You triage my work messages into projects.
 
@@ -70,6 +73,7 @@ def run(c, projects):
         for r in c.execute("select * from items")
         if r["classified_for"] != f"{r['updated_at']}|{phash}"
     ]
+    log.info("ai: %d new or changed items to classify", len(todo))
     if not todo:
         return 0
     s = settings()
@@ -82,7 +86,9 @@ def run(c, projects):
             {k: it[k] for k in ("id", "source", "title", "people", "last_from_me")} | {"text": (it["body"] or "")[:800]}
             for it in batch.values()
         ]
+        t = time.monotonic()
         answer = ask_llm(s, PROMPT.format(projects=listing), json.dumps(payload, ensure_ascii=False))
+        log.info("ai: batch %d/%d (%d items) took %.1fs", i // BATCH + 1, -(-len(todo) // BATCH), len(batch), time.monotonic() - t)
         for out in parse_json(answer).get("items", []):
             it = batch.get(out.get("id"))
             if not it:

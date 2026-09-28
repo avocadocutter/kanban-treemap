@@ -108,7 +108,7 @@ def main():
         raise SystemExit(str(e))
 
     url = f"http://localhost:{port}"
-    print(f"kanban-treemap running at {url}")
+    print(f"kanban-treemap running at {url}  (log: {HOME / 'kanban-treemap.log'})")
     if not args.no_browser:
         threading.Timer(1.5, webbrowser.open, [url]).start()
     uvicorn.run("kanban_treemap.main:app", host="127.0.0.1", port=port, log_level="warning")

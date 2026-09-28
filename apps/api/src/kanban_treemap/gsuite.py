@@ -1,4 +1,5 @@
 import html
+import logging
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -20,6 +21,7 @@ SCOPES = [
 TOKEN = HOME / "google_token.json"
 GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me"
 CHAT = "https://chat.googleapis.com/v1"
+log = logging.getLogger("kanban_treemap")
 
 _pending_flows = {}
 
@@ -78,7 +80,10 @@ def _sender(m):
 def gmail(s, my_email, days):
     q = f"in:inbox newer_than:{days}d -category:promotions -category:social"
     threads = _get(s, f"{GMAIL}/threads", q=q, maxResults=100).get("threads", [])
-    for t in threads:
+    log.info("gmail: %d threads to read", len(threads))
+    for n, t in enumerate(threads, 1):
+        if n % 10 == 0:
+            log.info("gmail: %d/%d threads read", n, len(threads))
         msgs = _get(s, f"{GMAIL}/threads/{t['id']}", format="metadata", metadataHeaders=["From", "To", "Subject"])["messages"]
         first = {h["name"]: h["value"] for h in msgs[0]["payload"]["headers"]}
         last = {h["name"]: h["value"] for h in msgs[-1]["payload"]["headers"]}
@@ -101,10 +106,13 @@ def chat(s, my_user_id, days):
     token = None
     while True:
         page = _get(s, f"{CHAT}/spaces", pageSize=1000, **({"pageToken": token} if token else {}))
-        for sp in page.get("spaces", []):
+        spaces = page.get("spaces", [])
+        log.info("chat: checking %d spaces", len(spaces))
+        for sp in spaces:
             active = sp.get("lastActiveTime")
             if not active or datetime.fromisoformat(active) < since:
                 continue
+            log.info("chat: reading space %s", sp["name"])
             msgs = _get(
                 s,
                 f"{CHAT}/{sp['name']}/messages",

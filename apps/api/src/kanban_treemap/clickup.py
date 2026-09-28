@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 
 import requests
@@ -5,6 +6,7 @@ import requests
 from .config import settings
 
 API = "https://api.clickup.com/api"
+log = logging.getLogger("kanban_treemap")
 
 
 def _get(path, **params):
@@ -30,7 +32,10 @@ def chats(days):
                 limit=100,
                 **({"cursor": cursor} if cursor else {}),
             )
-            for ch in page.get("data", []):
+            channels = page.get("data", [])
+            log.info("clickup: workspace %s, %d active channels", ws, len(channels))
+            for n, ch in enumerate(channels, 1):
+                log.info("clickup: reading channel %d/%d", n, len(channels))
                 msgs = _get(
                     f"/v3/workspaces/{ws}/chat/channels/{ch['id']}/messages", limit=15, content_format="text/plain"
                 ).get("data", [])

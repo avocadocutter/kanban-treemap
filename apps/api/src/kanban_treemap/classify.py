@@ -87,6 +87,7 @@ def run(c, projects):
             for it in batch.values()
         ]
         t = time.monotonic()
+        log.info("ai: sending batch %d/%d to %s...", i // BATCH + 1, -(-len(todo) // BATCH), s["LLM_PROVIDER"])
         answer = ask_llm(s, PROMPT.format(projects=listing), json.dumps(payload, ensure_ascii=False))
         log.info("ai: batch %d/%d (%d items) took %.1fs", i // BATCH + 1, -(-len(todo) // BATCH), len(batch), time.monotonic() - t)
         for out in parse_json(answer).get("items", []):

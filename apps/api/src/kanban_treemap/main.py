@@ -73,6 +73,7 @@ def sync(days: int = 14):
             warnings.append("google: not connected yet, click Connect Google")
     for name, fetch in sources.items():
         t = time.monotonic()
+        log.info("sync: fetching %s...", name)
         try:
             fetched[name] = list(fetch())
             log.info("sync: %s fetched %d items in %.1fs", name, len(fetched[name]), time.monotonic() - t)

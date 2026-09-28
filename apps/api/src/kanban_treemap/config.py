@@ -38,7 +38,7 @@ def init_home():
 @cache
 def settings():
     file_cfg = (yaml.safe_load(CONFIG_FILE.read_text()) or {}) if CONFIG_FILE.exists() else {}
-    values = {k: os.environ.get(k) or file_cfg.get(k.lower()) for k in KEYS + API_KEYS + SOURCE_KEYS}
+    values = {k: str(os.environ.get(k) or file_cfg.get(k.lower()) or "").strip() for k in KEYS + API_KEYS + SOURCE_KEYS}
     required = KEYS + (API_KEYS if values["LLM_PROVIDER"] == "api" else [])
     missing = [k.lower() for k in required if not values[k]]
     if missing:

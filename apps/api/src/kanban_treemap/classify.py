@@ -37,7 +37,8 @@ def ask_llm(s, system, user):
         },
         timeout=180,
     )
-    r.raise_for_status()
+    if not r.ok:
+        raise RuntimeError(f"{r.status_code} from {r.url}: {r.text[:300]}")
     return r.json()["choices"][0]["message"]["content"]
 
 

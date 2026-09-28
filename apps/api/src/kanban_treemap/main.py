@@ -94,11 +94,14 @@ def sync(days: int = 14):
                 db.set_state(c, "clickup_synced_ms", str(int(started.timestamp() * 1000)))
             else:
                 db.replace_source(c, name, items)
+    log.info("sync: saved fetched items")
+    classified = 0
+    with db.conn() as c:
         try:
             classified = classify.run(c, db.load_projects())
         except (RuntimeError, requests.RequestException) as e:
             log.error("sync: AI classification failed: %s", e)
-            raise HTTPException(502, f"AI classification failed: {e}") from e
+            warnings.append(f"AI classification failed, unsorted items are in Unclassified: {e}")
     sync_state["synced_at"] = datetime.now(UTC).isoformat()
     log.info("sync: done, %d items classified", classified)
     return {"fetched": {k: len(v) for k, v in fetched.items()}, "classified": classified, "warnings": warnings}

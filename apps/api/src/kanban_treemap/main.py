@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import classify, clickup, db, gsuite, treemap
+from . import actions, classify, clickup, db, gsuite, treemap
 from .config import HOME, settings
 
 LOG_FILE = HOME / "kanban-treemap.log"
@@ -102,17 +102,31 @@ def sync(days: int = 14):
         except (RuntimeError, requests.RequestException) as e:
             log.error("sync: AI classification failed: %s", e)
             warnings.append(f"AI classification failed, unsorted items are in Unclassified: {e}")
+    with db.conn() as c:
+        try:
+            actions.run(c, db.load_projects(), _today())
+        except (RuntimeError, requests.RequestException) as e:
+            log.error("sync: action list failed: %s", e)
+            warnings.append(f"Action list failed, showing the previous one: {e}")
     sync_state["synced_at"] = datetime.now(UTC).isoformat()
     log.info("sync: done, %d items classified", classified)
     return {"fetched": {k: len(v) for k, v in fetched.items()}, "classified": classified, "warnings": warnings}
 
 
+def _nodes(c):
+    nodes = treemap.project_nodes(db.load_projects(), db.all_items(c), _today(), settings()["DEADLINE_WARNING_DAYS"])
+    project_actions = actions.load(c)
+    for n in nodes:
+        n["actions"] = project_actions.get(n["id"], [])
+    return nodes
+
+
 @app.get("/api/treemap")
 def get_treemap():
     with db.conn() as c:
-        items = db.all_items(c)
+        nodes = _nodes(c)
     return {
-        "projects": treemap.project_nodes(db.load_projects(), items, _today(), settings()["DEADLINE_WARNING_DAYS"]),
+        "projects": nodes,
         "google_enabled": bool(settings()["GOOGLE_CLIENT_ID"]),
         "google_connected": gsuite.TOKEN.exists(),
         "synced_at": sync_state["synced_at"],
@@ -123,7 +137,7 @@ def get_treemap():
 def get_project(project_id: str):
     with db.conn() as c:
         items = db.all_items(c)
-    node = next((n for n in treemap.project_nodes(db.load_projects(), items, _today(), settings()["DEADLINE_WARNING_DAYS"]) if n["id"] == project_id), None)
+        node = next((n for n in _nodes(c) if n["id"] == project_id), None)
     if not node:
         raise HTTPException(404, "Unknown project")
     mine = [i for i in items if (i["project"] or "other") == project_id]

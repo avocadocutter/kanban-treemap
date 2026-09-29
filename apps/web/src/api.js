@@ -8,6 +8,15 @@ export async function api(path, init) {
   return body
 }
 
+/** @type {Record<import('./types.js').Source, string>} */
+export const SOURCE_LABEL = { gmail: 'Gmail', chat: 'Google Chat', clickup: 'ClickUp Chat' }
+
+/** @type {Record<import('./types.js').Source, string>} */
+export const SOURCE_SHORT = { gmail: 'mail', chat: 'gchat', clickup: 'clickup' }
+
+/** @param {string} projectId @param {string | null} itemId */
+export const projectUrl = (projectId, itemId) => `/p/${projectId}${itemId ? `?item=${encodeURIComponent(itemId)}` : ''}`
+
 /** @type {Record<import('./types.js').Status, string>} */
 export const STATUS_STYLE = {
   behind: 'bg-rose-900/60 hover:bg-rose-900/80 text-rose-100 ring-1 ring-inset ring-rose-800/60',

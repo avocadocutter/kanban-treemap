@@ -21,6 +21,7 @@ def conn():
         project text, needs_reply int default 0, summary text, classified_for text)"""
     )
     c.execute("create table if not exists state(key text primary key, value text)")
+    c.execute("create table if not exists project_actions(project_id text primary key, items_hash text, actions_json text)")
     return c
 
 

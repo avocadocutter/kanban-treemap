@@ -1,11 +1,9 @@
 // @ts-check
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router'
-import { api, STATUS_STYLE } from '../api.js'
+import { Link, useParams, useSearchParams } from 'react-router'
+import { api, SOURCE_LABEL, SOURCE_SHORT, STATUS_STYLE } from '../api.js'
 
 /** @typedef {import('../types.js').Item} Item */
-
-const SOURCE_LABEL = { gmail: 'Gmail', chat: 'Google Chat', clickup: 'ClickUp Chat' }
 
 /** @param {string | null} body @returns {{ who: string, text: string }[]} */
 export function parseMessages(body) {
@@ -20,6 +18,7 @@ export function parseMessages(body) {
 
 export default function ProjectPage() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const [data, setData] = useState(
     /** @type {{ project: import('../types.js').ProjectNode, items: Item[] } | null} */ (null),
   )
@@ -30,10 +29,10 @@ export default function ProjectPage() {
     api(`/projects/${id}`)
       .then((d) => {
         setData(d)
-        setSelectedId(d.items[0]?.id ?? null)
+        setSelectedId(searchParams.get('item') ?? d.items[0]?.id ?? null)
       })
       .catch((e) => setError(e.message))
-  }, [id])
+  }, [id, searchParams])
 
   if (error) return <p className="p-4 text-red-400">{error}</p>
   if (!data) return <p className="p-4 text-zinc-400">Loading…</p>
@@ -57,7 +56,30 @@ export default function ProjectPage() {
         <p className="text-zinc-400">Nothing here.</p>
       ) : (
         <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(240px,1fr)_2fr]">
-          <ul className="min-h-0 overflow-y-auto rounded-md border border-zinc-800">
+          <div className="flex min-h-0 flex-col gap-3">
+          {project.actions.length > 0 && (
+            <section className="max-h-[45%] shrink-0 overflow-y-auto rounded-md border border-zinc-800">
+              <h2 className="sticky top-0 bg-zinc-950 px-3 py-2 text-xs font-semibold uppercase text-zinc-400">
+                Actions ({project.actions.length})
+              </h2>
+              <ol>
+                {project.actions.map((a, i) => (
+                  <li key={i}>
+                    <button
+                      onClick={() => a.item_id && setSelectedId(a.item_id)}
+                      className={`flex w-full items-start gap-2 border-t border-zinc-800 px-3 py-1.5 text-left text-sm hover:bg-zinc-900 ${a.item_id && a.item_id === selectedId ? 'bg-zinc-800' : ''}`}
+                    >
+                      <span className="w-5 shrink-0 text-right text-xs leading-5 text-zinc-500">{i + 1}.</span>
+                      <span className="min-w-0 flex-1 leading-5">{a.text}</span>
+                      {a.due && <span className="shrink-0 rounded bg-zinc-800 px-1 text-xs leading-5">{a.due.slice(5)}</span>}
+                      {a.source && <span className="shrink-0 text-[10px] uppercase leading-5 text-zinc-500">{SOURCE_SHORT[a.source]}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+          <ul className="min-h-0 flex-1 overflow-y-auto rounded-md border border-zinc-800">
             {items.map((it) => (
               <li key={it.id}>
                 <button
@@ -76,6 +98,7 @@ export default function ProjectPage() {
               </li>
             ))}
           </ul>
+          </div>
 
           {selected && <Conversation item={selected} />}
         </div>

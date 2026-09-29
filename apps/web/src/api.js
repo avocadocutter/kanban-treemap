@@ -12,10 +12,18 @@ export async function api(path, init) {
 export const SOURCE_LABEL = { gmail: 'Gmail', chat: 'Google Chat', clickup: 'ClickUp Chat' }
 
 /** @type {Record<import('./types.js').Source, string>} */
-export const SOURCE_SHORT = { gmail: 'mail', chat: 'gchat', clickup: 'clickup' }
+export const SOURCE_ICON = { gmail: '✉', chat: '💬', clickup: '◆' }
 
-/** @param {string} projectId @param {string | null} itemId */
-export const projectUrl = (projectId, itemId) => `/p/${projectId}${itemId ? `?item=${encodeURIComponent(itemId)}` : ''}`
+/** @param {import('./types.js').ActionSource[]} sources @returns {[import('./types.js').Source, number][]} */
+export function sourceCounts(sources) {
+  /** @type {Record<string, number>} */
+  const counts = {}
+  for (const s of sources) counts[s.source] = (counts[s.source] ?? 0) + 1
+  return /** @type {any} */ (Object.entries(counts))
+}
+
+/** @param {string} projectId @param {number | null} actionIndex */
+export const projectUrl = (projectId, actionIndex) => `/p/${projectId}${actionIndex === null ? '' : `?action=${actionIndex}`}`
 
 /** @type {Record<import('./types.js').Status, string>} */
 export const STATUS_STYLE = {

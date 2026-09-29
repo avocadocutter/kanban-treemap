@@ -4,6 +4,7 @@ import logging
 import subprocess
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
@@ -29,7 +30,34 @@ For each item return:
 Respond with JSON only: {{"items": [{{"id": "...", "project": "...", "needs_reply": false, "summary": "..."}}]}}"""
 
 
-def ask_llm(s, system, user):
+HEARTBEAT_SECONDS = 15
+
+
+def describe_provider(s):
+    if s["LLM_PROVIDER"] == "claude":
+        return f"claude ({s['LLM_MODEL'] or 'haiku'})"
+    if s["LLM_PROVIDER"] == "codex":
+        return "codex"
+    return f"{s['LLM_MODEL']} at {s['LLM_BASE_URL']}"
+
+
+def ask_llm(s, system, user, label):
+    provider = describe_provider(s)
+    log.info("%s: asking %s...", label, provider)
+    started = time.monotonic()
+    with ThreadPoolExecutor(1) as pool:
+        future = pool.submit(_ask, s, system, user)
+        while True:
+            try:
+                answer = future.result(timeout=HEARTBEAT_SECONDS)
+                break
+            except TimeoutError:
+                log.info("%s: still waiting for %s (%ds so far)", label, provider, time.monotonic() - started)
+    log.info("%s: answer received in %.1fs", label, time.monotonic() - started)
+    return answer
+
+
+def _ask(s, system, user):
     if s["LLM_PROVIDER"] == "claude":
         return ask_claude(system, user, s["LLM_MODEL"] or "haiku")
     if s["LLM_PROVIDER"] == "codex":
@@ -47,7 +75,7 @@ def ask_llm(s, system, user):
         )
         if r.status_code not in RETRY_STATUSES or wait is None:
             break
-        log.warning("ai: provider busy (%s), retrying in %ss", r.status_code, wait)
+        log.warning("AI provider busy (%s), retrying in %ss", r.status_code, wait)
         time.sleep(wait)
     if not r.ok:
         raise RuntimeError(f"{r.status_code} from {r.url}: {r.text[:300]}")
@@ -106,7 +134,7 @@ def run(c, projects):
         for r in c.execute("select * from items")
         if r["classified_for"] != f"{r['updated_at']}|{phash}"
     ]
-    log.info("ai: %d new or changed items to classify", len(todo))
+    log.info("sorting: %d new or changed messages to sort", len(todo))
     if not todo:
         return 0
     s = settings()
@@ -119,10 +147,8 @@ def run(c, projects):
             {k: it[k] for k in ("id", "source", "title", "people", "last_from_me")} | {"text": (it["body"] or "")[:800]}
             for it in batch.values()
         ]
-        t = time.monotonic()
-        log.info("ai: sending batch %d/%d to %s...", i // BATCH + 1, -(-len(todo) // BATCH), s["LLM_PROVIDER"])
-        answer = ask_llm(s, PROMPT.format(projects=listing), json.dumps(payload, ensure_ascii=False))
-        log.info("ai: batch %d/%d (%d items) took %.1fs", i // BATCH + 1, -(-len(todo) // BATCH), len(batch), time.monotonic() - t)
+        label = f"sorting batch {i // BATCH + 1}/{-(-len(todo) // BATCH)} ({len(batch)} messages)"
+        answer = ask_llm(s, PROMPT.format(projects=listing), json.dumps(payload, ensure_ascii=False), label)
         for out in parse_json(answer).get("items", []):
             it = batch.get(out.get("id"))
             if not it:

@@ -22,6 +22,10 @@ def conn():
     )
     c.execute("create table if not exists state(key text primary key, value text)")
     c.execute("create table if not exists project_actions(project_id text primary key, items_hash text, actions_json text)")
+    c.execute(
+        """create table if not exists action_feedback(project_id text, norm text, text text, state text,
+        until text, created_at text, primary key(project_id, norm))"""
+    )
     return c
 
 

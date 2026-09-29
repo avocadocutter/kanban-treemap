@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import UTC, datetime, timedelta
@@ -8,6 +9,7 @@ import requests
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from . import actions, classify, clickup, db, gsuite, treemap
 from .config import HOME, settings
@@ -32,12 +34,17 @@ log.info(
 app = FastAPI()
 
 
+class Feedback(BaseModel):
+    project_id: str
+    text: str
+    state: str | None
+
+
 @app.exception_handler(Exception)
 def log_unhandled(request: Request, exc: Exception):
     log.exception("%s %s failed", request.method, request.url.path)
     return JSONResponse({"detail": f"{type(exc).__name__}: {exc}"}, status_code=500)
 STATIC = Path(__file__).parent / "static"
-sync_state = {"synced_at": None}
 
 
 def _today():
@@ -76,6 +83,7 @@ def sync(days: int = 14):
             sources["chat"] = lambda: gsuite.chat(s, me["sub"], days)
         else:
             warnings.append("google: not connected yet, click Connect Google")
+    fetch_started = time.monotonic()
     for name, fetch in sources.items():
         t = time.monotonic()
         log.info("sync: fetching %s...", name)
@@ -95,6 +103,8 @@ def sync(days: int = 14):
             else:
                 db.replace_source(c, name, items)
     log.info("sync: saved fetched items")
+    fetch_seconds = time.monotonic() - fetch_started
+    classify_started = time.monotonic()
     classified = 0
     with db.conn() as c:
         try:
@@ -102,34 +112,63 @@ def sync(days: int = 14):
         except (RuntimeError, requests.RequestException) as e:
             log.error("sync: AI classification failed: %s", e)
             warnings.append(f"AI classification failed, unsorted items are in Unclassified: {e}")
+    classify_seconds = time.monotonic() - classify_started
+    actions_started = time.monotonic()
+    updated = 0
     with db.conn() as c:
         try:
-            actions.run(c, db.load_projects(), _today())
+            updated = actions.run(c, db.load_projects(), _today())
         except (RuntimeError, requests.RequestException) as e:
             log.error("sync: action list failed: %s", e)
             warnings.append(f"Action list failed, showing the previous one: {e}")
-    sync_state["synced_at"] = datetime.now(UTC).isoformat()
+    last_run = {
+        "at": datetime.now(UTC).isoformat(),
+        "model": classify.describe_provider(cfg),
+        "steps": [
+            {"name": "fetch", "seconds": round(fetch_seconds, 1), "detail": " · ".join(f"{k} {len(v)}" for k, v in fetched.items())},
+            {"name": "classify", "seconds": round(classify_seconds, 1), "detail": f"{classified} messages"},
+            {"name": "actions", "seconds": round(time.monotonic() - actions_started, 1), "detail": f"{updated} projects updated"},
+        ],
+    }
+    with db.conn() as c:
+        db.set_state(c, "last_run", json.dumps(last_run))
     log.info("sync: done, %d items classified", classified)
     return {"fetched": {k: len(v) for k, v in fetched.items()}, "classified": classified, "warnings": warnings}
 
 
 def _nodes(c):
     nodes = treemap.project_nodes(db.load_projects(), db.all_items(c), _today(), settings()["DEADLINE_WARNING_DAYS"])
-    project_actions = actions.load(c)
+    project_actions = actions.load(c, _today())
     for n in nodes:
-        n["actions"] = project_actions.get(n["id"], [])
+        data = project_actions.get(n["id"], {})
+        n["actions"] = data.get("actions", [])
+        n["why"] = data.get("why", "")
+        n["confidence"] = data.get("confidence")
+        n["latency"] = data.get("latency")
     return nodes
+
+
+@app.post("/api/actions/feedback")
+def action_feedback(body: Feedback):
+    try:
+        with db.conn() as c:
+            actions.set_feedback(c, body.project_id, body.text, body.state, _today())
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    log.info("feedback: %s -> %s", body.text, body.state or "undo")
+    return {"ok": True}
 
 
 @app.get("/api/treemap")
 def get_treemap():
     with db.conn() as c:
         nodes = _nodes(c)
+        last_run = db.get_state(c, "last_run")
     return {
         "projects": nodes,
         "google_enabled": bool(settings()["GOOGLE_CLIENT_ID"]),
         "google_connected": gsuite.TOKEN.exists(),
-        "synced_at": sync_state["synced_at"],
+        "last_run": json.loads(last_run) if last_run else None,
     }
 
 

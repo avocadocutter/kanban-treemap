@@ -4,7 +4,7 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 
-from .classify import ask_llm, parse_json
+from .classify import ask_llm, parse_json, strict_object
 from .config import settings
 
 log = logging.getLogger("kanban_treemap")
@@ -12,6 +12,27 @@ MAX_THREADS = 40
 FEEDBACK_STATES = {"done", "snoozed", "dismissed"}
 DONE_MEMORY_DAYS = 14
 MAX_FEEDBACK_IN_PROMPT = 30
+
+ACTIONS_SCHEMA = strict_object(
+    {
+        "why": {"type": "string"},
+        "confidence": {"type": "number"},
+        "actions": {
+            "type": "array",
+            "items": strict_object(
+                {
+                    "text": {"type": "string"},
+                    "due": {"type": ["string", "null"]},
+                    "confidence": {"type": "number"},
+                    "sources": {
+                        "type": "array",
+                        "items": strict_object({"item_id": {"type": "string"}, "quote": {"type": "string"}}),
+                    },
+                }
+            ),
+        },
+    }
+)
 
 PROMPT = """You are my work assistant. Today is {today}.
 Below are the recent message threads of my project "{name}" ({description}).
@@ -129,6 +150,7 @@ def run(c, projects, today):
                 ),
                 json.dumps(payload, ensure_ascii=False),
                 f'actions for "{p["name"]}" ({len(items)} threads)',
+                ACTIONS_SCHEMA,
             )
         )
         by_id = {it["id"]: it for it in items}

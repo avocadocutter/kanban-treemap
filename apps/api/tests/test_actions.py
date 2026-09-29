@@ -33,7 +33,7 @@ def test_actions_are_saved_validated_and_cached(monkeypatch):
     c = fresh_db()
     calls = []
 
-    def fake_llm(s, system, user, label):
+    def fake_llm(s, system, user, label, schema):
         calls.append(system)
         return json.dumps({"why": "Laura is waiting", "confidence": 1.4, "actions": [
             {"text": "Send logo v3 to Laura", "due": "2026-10-02", "confidence": 0.9, "sources": [
@@ -66,7 +66,7 @@ def test_feedback_is_shown_sent_to_ai_and_snooze_expires(monkeypatch):
     c = fresh_db()
     prompts = []
 
-    def fake_llm(s, system, user, label):
+    def fake_llm(s, system, user, label, schema):
         prompts.append(system)
         return json.dumps({"why": "w", "confidence": 0.8, "actions": [
             {"text": "Send logo v3 to Laura", "confidence": 0.9, "sources": []},

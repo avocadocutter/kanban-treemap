@@ -33,6 +33,27 @@ Respond with JSON only: {{"items": [{{"id": "...", "project": "...", "needs_repl
 HEARTBEAT_SECONDS = 15
 
 
+def strict_object(properties):
+    return {"type": "object", "additionalProperties": False, "required": list(properties), "properties": properties}
+
+
+SORT_SCHEMA = strict_object(
+    {
+        "items": {
+            "type": "array",
+            "items": strict_object(
+                {
+                    "id": {"type": "string"},
+                    "project": {"type": "string"},
+                    "needs_reply": {"type": "boolean"},
+                    "summary": {"type": "string"},
+                }
+            ),
+        }
+    }
+)
+
+
 def describe_provider(s):
     if s["LLM_PROVIDER"] == "claude":
         return f"claude ({s['LLM_MODEL'] or 'haiku'})"
@@ -41,12 +62,12 @@ def describe_provider(s):
     return f"{s['LLM_MODEL']} at {s['LLM_BASE_URL']}"
 
 
-def ask_llm(s, system, user, label):
+def ask_llm(s, system, user, label, schema):
     provider = describe_provider(s)
     log.info("%s: asking %s...", label, provider)
     started = time.monotonic()
     with ThreadPoolExecutor(1) as pool:
-        future = pool.submit(_ask, s, system, user)
+        future = pool.submit(_ask, s, system, user, schema)
         while True:
             try:
                 answer = future.result(timeout=HEARTBEAT_SECONDS)
@@ -57,18 +78,21 @@ def ask_llm(s, system, user, label):
     return answer
 
 
-def _ask(s, system, user):
+def _ask(s, system, user, schema):
     if s["LLM_PROVIDER"] == "claude":
-        return ask_claude(system, user, s["LLM_MODEL"] or "haiku")
+        return ask_claude(system, user, s["LLM_MODEL"] or "haiku", schema)
     if s["LLM_PROVIDER"] == "codex":
-        return ask_codex(system, user)
+        return ask_codex(system, user, schema)
     for wait in [*RETRY_WAITS, None]:
         r = requests.post(
             f"{s['LLM_BASE_URL'].rstrip('/')}/chat/completions",
             headers={"Authorization": f"Bearer {s['LLM_API_KEY']}"},
             json={
                 "model": s["LLM_MODEL"],
-                "response_format": {"type": "json_object"},
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {"name": "response", "schema": schema, "strict": True},
+                },
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             },
             timeout=180,
@@ -82,13 +106,14 @@ def _ask(s, system, user):
     return r.json()["choices"][0]["message"]["content"]
 
 
-def ask_claude(system, user, model):
+def ask_claude(system, user, model, schema):
     with tempfile.TemporaryDirectory() as tmp:
         p = subprocess.run(
             [
                 "claude", "-p", "--output-format", "json", "--model", model, "--tools", "",
                 "--system-prompt", system, "--setting-sources", "", "--strict-mcp-config",
                 "--mcp-config", '{"mcpServers":{}}', "--disable-slash-commands", "--no-session-persistence",
+                "--json-schema", json.dumps(schema),
             ],
             input=user,
             capture_output=True,
@@ -103,14 +128,21 @@ def ask_claude(system, user, model):
         raise RuntimeError(f"claude failed (try running `claude` and /login): {(p.stderr or p.stdout).strip()[-400:]}") from None
     if p.returncode != 0 or out.get("is_error"):
         raise RuntimeError(f"claude failed (try running `claude` and /login): {out.get('result', '')[:400]}")
-    return out["result"]
+    if "structured_output" not in out:
+        raise RuntimeError(f"claude returned no structured output: {str(out.get('result', ''))[:400]}")
+    return json.dumps(out["structured_output"])
 
 
-def ask_codex(system, user):
+def ask_codex(system, user, schema):
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "answer.txt"
+        schema_file = Path(tmp) / "schema.json"
+        schema_file.write_text(json.dumps(schema))
         p = subprocess.run(
-            ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only", "-o", str(out), "-"],
+            [
+                "codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only",
+                "--output-schema", str(schema_file), "-o", str(out), "-",
+            ],
             input=f"{system}\n\nItems:\n{user}",
             capture_output=True,
             text=True,
@@ -148,7 +180,7 @@ def run(c, projects):
             for it in batch.values()
         ]
         label = f"sorting batch {i // BATCH + 1}/{-(-len(todo) // BATCH)} ({len(batch)} messages)"
-        answer = ask_llm(s, PROMPT.format(projects=listing), json.dumps(payload, ensure_ascii=False), label)
+        answer = ask_llm(s, PROMPT.format(projects=listing), json.dumps(payload, ensure_ascii=False), label, SORT_SCHEMA)
         for out in parse_json(answer).get("items", []):
             it = batch.get(out.get("id"))
             if not it:

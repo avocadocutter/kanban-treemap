@@ -87,6 +87,8 @@ STEP 2 - Open {projects} and list your projects.
       description: one line on what the project is about
       deadline: YYYY-MM-DD (omit if none)
   ----------------------------------------------------------------
+  Box turns red 7 days before its deadline. Change it for all projects with
+  deadline_warning_days in config.yaml, or per project with warning_days: N.
 
 STEP 3 - Run the same command again. Your browser opens:
   click "Connect Google", then "Sync".

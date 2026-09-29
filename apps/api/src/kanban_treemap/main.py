@@ -112,7 +112,7 @@ def get_treemap():
     with db.conn() as c:
         items = db.all_items(c)
     return {
-        "projects": treemap.project_nodes(db.load_projects(), items, _today()),
+        "projects": treemap.project_nodes(db.load_projects(), items, _today(), settings()["DEADLINE_WARNING_DAYS"]),
         "google_enabled": bool(settings()["GOOGLE_CLIENT_ID"]),
         "google_connected": gsuite.TOKEN.exists(),
         "synced_at": sync_state["synced_at"],
@@ -123,7 +123,7 @@ def get_treemap():
 def get_project(project_id: str):
     with db.conn() as c:
         items = db.all_items(c)
-    node = next((n for n in treemap.project_nodes(db.load_projects(), items, _today()) if n["id"] == project_id), None)
+    node = next((n for n in treemap.project_nodes(db.load_projects(), items, _today(), settings()["DEADLINE_WARNING_DAYS"]) if n["id"] == project_id), None)
     if not node:
         raise HTTPException(404, "Unknown project")
     mine = [i for i in items if (i["project"] or "other") == project_id]

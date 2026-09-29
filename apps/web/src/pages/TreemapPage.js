@@ -42,7 +42,7 @@ export default function TreemapPage() {
           <button
             onClick={sync}
             disabled={syncing}
-            className="rounded bg-sky-600 px-3 py-1.5 font-medium disabled:opacity-40"
+            className="rounded bg-sky-800 px-3 py-1.5 font-medium text-sky-50 disabled:opacity-40"
           >
             {syncing ? 'Syncing…' : 'Sync'}
           </button>
@@ -57,8 +57,8 @@ export default function TreemapPage() {
 function Legend() {
   return (
     <div className="flex gap-3 text-xs text-zinc-400">
-      <span><i className="mr-1 inline-block size-2.5 rounded-sm bg-red-600" />Behind schedule</span>
-      <span><i className="mr-1 inline-block size-2.5 rounded-sm bg-amber-500" />Needs reply</span>
+      <span><i className="mr-1 inline-block size-2.5 rounded-sm bg-rose-700" />Behind schedule</span>
+      <span><i className="mr-1 inline-block size-2.5 rounded-sm bg-amber-600" />Needs reply</span>
       <span><i className="mr-1 inline-block size-2.5 rounded-sm bg-emerald-700" />On track</span>
     </div>
   )

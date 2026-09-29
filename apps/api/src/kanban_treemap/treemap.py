@@ -1,7 +1,6 @@
 from datetime import date
 
 OTHER = {"id": "other", "name": "Unclassified", "importance": 1, "description": "Messages that match no project"}
-DEADLINE_WARNING_DAYS = 7
 
 
 def alias_match(item, projects):
@@ -16,7 +15,7 @@ def is_overdue(item, today):
     return bool(item.get("due_at")) and item["due_at"][:10] < today.isoformat()
 
 
-def project_nodes(projects, items, today: date):
+def project_nodes(projects, items, today: date, warning_days=7):
     by_project = {}
     for it in items:
         by_project.setdefault(it.get("project") or "other", []).append(it)
@@ -29,7 +28,7 @@ def project_nodes(projects, items, today: date):
         overdue = sum(is_overdue(i, today) for i in its)
         replies = sum(bool(i.get("needs_reply")) for i in its)
         deadline = p.get("deadline")
-        deadline_close = bool(deadline) and bool(its) and (date.fromisoformat(str(deadline)) - today).days <= DEADLINE_WARNING_DAYS
+        deadline_close = bool(deadline) and bool(its) and (date.fromisoformat(str(deadline)) - today).days <= int(p.get("warning_days", warning_days))
         nodes.append(
             {
                 "id": p["id"],

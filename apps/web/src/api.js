@@ -10,7 +10,7 @@ export async function api(path, init) {
 
 /** @type {Record<import('./types.js').Status, string>} */
 export const STATUS_STYLE = {
-  behind: 'bg-red-600 hover:bg-red-500',
-  reply: 'bg-amber-500 hover:bg-amber-400 text-zinc-950',
-  ok: 'bg-emerald-700 hover:bg-emerald-600',
+  behind: 'bg-rose-900/60 hover:bg-rose-900/80 text-rose-100 ring-1 ring-inset ring-rose-800/60',
+  reply: 'bg-amber-900/50 hover:bg-amber-900/70 text-amber-100 ring-1 ring-inset ring-amber-800/60',
+  ok: 'bg-emerald-900/50 hover:bg-emerald-900/70 text-emerald-100 ring-1 ring-inset ring-emerald-800/60',
 }

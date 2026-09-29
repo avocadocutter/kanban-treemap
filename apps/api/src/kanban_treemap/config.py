@@ -10,6 +10,8 @@ CONFIG_FILE = HOME / "config.yaml"
 PROJECTS_FILE = HOME / "projects.yaml"
 KEYS = ["LLM_PROVIDER", "PORT"]
 SOURCE_KEYS = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "CLICKUP_API_TOKEN"]
+OPTIONAL_KEYS = ["DEADLINE_WARNING_DAYS"]
+DEFAULT_DEADLINE_WARNING_DAYS = 7
 API_KEYS = ["LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY"]
 PROVIDERS = ["claude", "codex", "api"]
 
@@ -19,6 +21,7 @@ llm_provider: claude
 google_client_id: ""
 google_client_secret: ""
 clickup_api_token: ""
+deadline_warning_days: 7
 """
 
 
@@ -38,7 +41,7 @@ def init_home():
 @cache
 def settings():
     file_cfg = (yaml.safe_load(CONFIG_FILE.read_text()) or {}) if CONFIG_FILE.exists() else {}
-    values = {k: str(os.environ.get(k) or file_cfg.get(k.lower()) or "").strip() for k in KEYS + API_KEYS + SOURCE_KEYS}
+    values = {k: str(os.environ.get(k) or file_cfg.get(k.lower()) or "").strip() for k in KEYS + API_KEYS + SOURCE_KEYS + OPTIONAL_KEYS}
     required = KEYS + (API_KEYS if values["LLM_PROVIDER"] == "api" else [])
     missing = [k.lower() for k in required if not values[k]]
     if missing:
@@ -55,5 +58,9 @@ def settings():
             "Install it or change llm_provider."
         )
     values["PORT"] = int(values["PORT"])
+    try:
+        values["DEADLINE_WARNING_DAYS"] = int(values["DEADLINE_WARNING_DAYS"] or DEFAULT_DEADLINE_WARNING_DAYS)
+    except ValueError:
+        raise RuntimeError(f"deadline_warning_days must be a whole number of days in {CONFIG_FILE}") from None
     values["WEB_URL"] = os.environ.get("WEB_URL") or f"http://localhost:{values['PORT']}"
     return values

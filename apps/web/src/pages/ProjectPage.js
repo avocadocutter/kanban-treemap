@@ -66,7 +66,7 @@ export default function ProjectPage() {
                 >
                   <div className="flex items-center gap-2">
                     <span className="min-w-0 flex-1 truncate font-medium">{it.title}</span>
-                    {!!it.needs_reply && <span className="size-2 shrink-0 rounded-full bg-amber-500" title="needs reply" />}
+                    {!!it.needs_reply && <span className="size-2 shrink-0 rounded-full bg-amber-600" title="needs reply" />}
                   </div>
                   <div className="flex justify-between text-xs text-zinc-500">
                     <span>{SOURCE_LABEL[it.source]}</span>
@@ -91,7 +91,7 @@ function Conversation({ item }) {
       <header className="border-b border-zinc-800 px-4 py-3">
         <div className="flex items-start gap-2">
           <h2 className="min-w-0 flex-1 font-semibold">{item.title}</h2>
-          {!!item.needs_reply && <span className="rounded bg-amber-500 px-1.5 text-xs text-zinc-950">reply</span>}
+          {!!item.needs_reply && <span className="rounded bg-amber-900/60 px-1.5 text-xs text-amber-100">reply</span>}
         </div>
         <p className="text-xs text-zinc-500">{SOURCE_LABEL[item.source]} · {item.people}</p>
         {item.summary && <p className="mt-1 text-sm text-zinc-300">AI: {item.summary}</p>}

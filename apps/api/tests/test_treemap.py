@@ -44,3 +44,14 @@ def test_sort_items_puts_urgent_first():
 def test_alias_match():
     assert alias_match({"title": "Re: logo", "people": "Laura <laura@acme.com>"}, PROJECTS) == "a"
     assert alias_match({"title": "hi", "people": "x@y.com"}, PROJECTS) is None
+
+
+def test_warning_days_global_and_per_project():
+    projects = [
+        {"id": "short", "name": "S", "importance": 1, "deadline": date(2026, 9, 27), "warning_days": 1},
+        {"id": "long", "name": "L", "importance": 1, "deadline": date(2026, 9, 27)},
+    ]
+    items = [item("short"), item("long")]
+    nodes = {n["id"]: n for n in project_nodes(projects, items, TODAY, warning_days=2)}
+    assert nodes["short"]["status"] == "ok"
+    assert nodes["long"]["status"] == "behind"
